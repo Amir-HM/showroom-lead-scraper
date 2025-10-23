@@ -1,4 +1,5 @@
-const { Actor } = require('apify');
+const { Actor, CheerioCrawler } = require('apify');
+const { URL } = require('url');
 
 // Helper function to create search queries
 function generateSearchQueries(cities, categories, countryCode) {
@@ -7,7 +8,7 @@ function generateSearchQueries(cities, categories, countryCode) {
     for (const city of cities) {
         for (const category of categories) {
             queries.push({
-                query: `${category} in ${city}, ${countryCode}`,
+                searchUrl: `https://www.google.com/maps/search/${encodeURIComponent(category + ' in ' + city + ', ' + countryCode)}`,
                 city: city,
                 category: category
             });
@@ -17,23 +18,49 @@ function generateSearchQueries(cities, categories, countryCode) {
     return queries;
 }
 
-// Helper function to clean and normalize data
-function cleanBusinessData(business, city, category) {
-    return {
-        name: business.title || business.name || '',
-        address: business.address || business.location?.address || '',
-        city: city,
-        category: category,
-        website: business.website || business.url || null,
-        phone: business.phone || business.phoneNumber || null,
-        rating: business.rating || business.totalScore || null,
-        reviewCount: business.reviewsCount || business.reviews || 0,
-        googleMapsUrl: business.url || business.link || '',
-        placeId: business.placeId || business.id || '',
-        latitude: business.location?.lat || null,
-        longitude: business.location?.lng || null,
-        scrapedAt: new Date().toISOString()
-    };
+// Helper function to extract business data from Google Maps HTML
+function extractBusinessData($, city, category) {
+    const businesses = [];
+    
+    // Google Maps uses various selectors for business listings
+    // This is a simplified version - Google Maps is heavily JavaScript-based
+    $('div[role="article"]').each((i, element) => {
+        const $element = $(element);
+        
+        const name = $element.find('div.qBF1Pd').text().trim() || 
+                     $element.find('h3').text().trim();
+        
+        if (!name) return;
+        
+        const address = $element.find('div.W4Efsd:nth-of-type(2) span').text().trim() ||
+                       $element.find('.W4Efsd').first().text().trim();
+        
+        const ratingText = $element.find('span[role="img"]').attr('aria-label') || '';
+        const rating = parseFloat(ratingText.match(/[\d.]+/)?.[0]) || null;
+        
+        const reviewText = $element.find('span.UY7F9').text().trim();
+        const reviewCount = parseInt(reviewText.replace(/[^\d]/g, '')) || 0;
+        
+        const phone = $element.find('span.UsdlK').text().trim() || null;
+        
+        businesses.push({
+            name: name,
+            address: address,
+            city: city,
+            category: category,
+            website: null, // Will be extracted from detail page if needed
+            phone: phone,
+            rating: rating,
+            reviewCount: reviewCount,
+            googleMapsUrl: null, // Will be updated if link is found
+            placeId: null,
+            latitude: null,
+            longitude: null,
+            scrapedAt: new Date().toISOString()
+        });
+    });
+    
+    return businesses;
 }
 
 // Main actor function
@@ -68,41 +95,50 @@ Actor.main(async () => {
     let totalScraped = 0;
     let totalUnique = 0;
     
-    // Process each search query
+    // Use CheerioCrawler for each search query
     for (const searchQuery of searchQueries) {
-        console.log(`\n🔍 Searching: ${searchQuery.query}`);
+        console.log(`\n🔍 Searching: ${searchQuery.category} in ${searchQuery.city}, ${countryCode}`);
         
         try {
-            // Call Google Maps Scraper actor
-            const googleMapsScraperInput = {
-                searchStringsArray: [searchQuery.query],
-                maxCrawledPlacesPerSearch: maxResultsPerSearch,
-                language: 'en',
-                countryCode: 'se', // Sweden country code
-                proxyConfig: proxyConfiguration,
-                includeWebsites: true,
-                includePhoneNumber: true,
-                includeReviews: false, // We only need the count, not full reviews
-                skipClosedPlaces: false
-            };
+            const results = [];
             
-            // Run the Google Maps Scraper
-            const run = await Actor.call('compass/crawler-google-places', googleMapsScraperInput);
+            // Create a crawler for this search
+            const crawler = new CheerioCrawler({
+                maxRequestsPerCrawl: 1,
+                requestHandlerTimeoutSecs: 30,
+                proxyConfiguration,
+                async requestHandler({ $, request }) {
+                    console.log(`📡 Fetched: ${request.url}`);
+                    
+                    // Extract business data from the page
+                    const businesses = extractBusinessData($, searchQuery.city, searchQuery.category);
+                    results.push(...businesses);
+                    
+                    console.log(`✅ Found ${businesses.length} businesses on this page`);
+                },
+                failedRequestHandler({ request }) {
+                    console.error(`❌ Request failed: ${request.url}`);
+                },
+            });
             
-            // Get the results from the scraper's dataset
-            const { items } = await Actor.apifyClient.dataset(run.defaultDatasetId).listItems();
+            // Run the crawler with the search URL
+            await crawler.run([searchQuery.searchUrl]);
             
-            console.log(`✅ Found ${items.length} businesses`);
-            totalScraped += items.length;
+            totalScraped += results.length;
             
             // Process and store results
-            for (const business of items) {
+            for (const business of results) {
                 // Create unique identifier
-                const uniqueId = `${business.title || business.name}-${business.address || business.location?.address}`.toLowerCase();
+                const uniqueId = `${business.name}-${business.address}`.toLowerCase();
                 
                 // Skip if already seen
                 if (seenBusinesses.has(uniqueId)) {
-                    console.log(`⏭️  Skipping duplicate: ${business.title || business.name}`);
+                    console.log(`⏭️  Skipping duplicate: ${business.name}`);
+                    continue;
+                }
+                
+                // Skip if name is empty
+                if (!business.name || business.name.length < 2) {
                     continue;
                 }
                 
@@ -110,20 +146,17 @@ Actor.main(async () => {
                 seenBusinesses.add(uniqueId);
                 totalUnique++;
                 
-                // Clean and normalize the data
-                const cleanedData = cleanBusinessData(business, searchQuery.city, searchQuery.category);
-                
                 // Push to dataset
-                await Actor.pushData(cleanedData);
+                await Actor.pushData(business);
                 
-                console.log(`💾 Saved: ${cleanedData.name} (${cleanedData.city})`);
+                console.log(`💾 Saved: ${business.name} (${business.city})`);
             }
             
             // Small delay between searches to be respectful
-            await Actor.utils.sleep(2000);
+            await Actor.utils.sleep(3000);
             
         } catch (error) {
-            console.error(`❌ Error searching "${searchQuery.query}":`, error.message);
+            console.error(`❌ Error searching "${searchQuery.category} in ${searchQuery.city}":`, error.message);
             // Continue with next query even if one fails
             continue;
         }
