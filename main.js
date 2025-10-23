@@ -1,6 +1,5 @@
 const { Actor } = require('apify');
-const { CheerioCrawler } = require('crawlee');
-const { URL } = require('url');
+const { PlaywrightCrawler } = require('crawlee');
 
 // Helper function to create search queries
 function generateSearchQueries(cities, categories, countryCode) {
@@ -9,7 +8,8 @@ function generateSearchQueries(cities, categories, countryCode) {
     for (const city of cities) {
         for (const category of categories) {
             queries.push({
-                searchUrl: `https://www.google.com/maps/search/${encodeURIComponent(category + ' in ' + city + ', ' + countryCode)}`,
+                searchUrl: `https://www.google.com/maps/search/${encodeURIComponent(category)}/@0,0,12z?hl=en&entry=ttu`,
+                location: `${city}, ${countryCode}`,
                 city: city,
                 category: category
             });
@@ -19,57 +19,132 @@ function generateSearchQueries(cities, categories, countryCode) {
     return queries;
 }
 
-// Helper function to extract business data from Google Maps HTML
-function extractBusinessData($, city, category) {
-    const businesses = [];
+// Helper function to scroll and load results in Google Maps
+async function scrollResults(page, maxResults) {
+    console.log(`📜 Scrolling to load up to ${maxResults} results...`);
     
-    // Google Maps uses various selectors for business listings
-    // This is a simplified version - Google Maps is heavily JavaScript-based
-    $('div[role="article"]').each((i, element) => {
-        const $element = $(element);
-        
-        const name = $element.find('div.qBF1Pd').text().trim() || 
-                     $element.find('h3').text().trim();
-        
-        if (!name) return;
-        
-        const address = $element.find('div.W4Efsd:nth-of-type(2) span').text().trim() ||
-                       $element.find('.W4Efsd').first().text().trim();
-        
-        const ratingText = $element.find('span[role="img"]').attr('aria-label') || '';
-        const rating = parseFloat(ratingText.match(/[\d.]+/)?.[0]) || null;
-        
-        const reviewText = $element.find('span.UY7F9').text().trim();
-        const reviewCount = parseInt(reviewText.replace(/[^\d]/g, '')) || 0;
-        
-        const phone = $element.find('span.UsdlK').text().trim() || null;
-        
-        businesses.push({
-            name: name,
-            address: address,
-            city: city,
-            category: category,
-            website: null, // Will be extracted from detail page if needed
-            phone: phone,
-            rating: rating,
-            reviewCount: reviewCount,
-            googleMapsUrl: null, // Will be updated if link is found
-            placeId: null,
-            latitude: null,
-            longitude: null,
-            scrapedAt: new Date().toISOString()
+    // Wait for results container
+    await page.waitForSelector('div[role="feed"]', { timeout: 10000 });
+    
+    let previousHeight = 0;
+    let scrollAttempts = 0;
+    const maxScrollAttempts = 50;
+    
+    while (scrollAttempts < maxScrollAttempts) {
+        await page.evaluate(() => {
+            const resultsPanel = document.querySelector('div[role="feed"]');
+            if (resultsPanel) {
+                resultsPanel.scrollTop = resultsPanel.scrollHeight;
+            }
         });
-    });
-    
-    return businesses;
+        
+        await page.waitForTimeout(1500);
+        
+        const currentResults = await page.$$eval('div[role="feed"] > div > div[class*="Nv2PK"]', els => els.length);
+        console.log(`   Found ${currentResults} results so far...`);
+        
+        if (currentResults >= maxResults) {
+            console.log(`✅ Reached target of ${maxResults} results`);
+            break;
+        }
+        
+        const currentHeight = await page.evaluate(() => {
+            const resultsPanel = document.querySelector('div[role="feed"]');
+            return resultsPanel ? resultsPanel.scrollHeight : 0;
+        });
+        
+        if (currentHeight === previousHeight) {
+            console.log('⏹️  Reached end of results');
+            break;
+        }
+        
+        previousHeight = currentHeight;
+        scrollAttempts++;
+    }
+}
+
+// Extract business data from Google Maps
+async function extractBusinesses(page, city, category) {
+    return await page.evaluate((city, category) => {
+        const businesses = [];
+        const results = document.querySelectorAll('div[role="feed"] > div > div[class*="Nv2PK"]');
+        
+        results.forEach((result) => {
+            try {
+                const nameEl = result.querySelector('div[class*="qBF1Pd"]') || result.querySelector('a[class*="hfpxzc"]');
+                const name = nameEl?.getAttribute('aria-label') || nameEl?.textContent?.trim() || '';
+                
+                if (!name || name.length < 2) return;
+                
+                const ratingEl = result.querySelector('span[role="img"]');
+                const ratingText = ratingEl?.getAttribute('aria-label') || '';
+                const ratingMatch = ratingText.match(/([0-9.]+)\s*star/i);
+                const rating = ratingMatch ? parseFloat(ratingMatch[1]) : null;
+                
+                const reviewEl = result.querySelector('span[aria-label*="reviews"]') || result.querySelector('span[aria-label*="review"]');
+                const reviewText = reviewEl?.getAttribute('aria-label') || reviewEl?.textContent || '';
+                const reviewMatch = reviewText.match(/([0-9,]+)/);
+                const reviewCount = reviewMatch ? parseInt(reviewMatch[1].replace(/,/g, '')) : 0;
+                
+                const addressEls = result.querySelectorAll('div[class*="W4Efsd"] span');
+                let address = '';
+                addressEls.forEach(el => {
+                    const text = el.textContent?.trim() || '';
+                    if (text && !text.includes('·') && !text.match(/^[0-9.]+$/)) {
+                        if (!address) address = text;
+                    }
+                });
+                
+                const categoryEls = result.querySelectorAll('div[class*="W4Efsd"] span');
+                let businessCategory = '';
+                categoryEls.forEach(el => {
+                    const text = el.textContent?.trim() || '';
+                    if (text.includes('·')) {
+                        const parts = text.split('·');
+                        if (parts[0] && !parts[0].match(/^\d/)) {
+                            businessCategory = parts[0].trim();
+                        }
+                    }
+                });
+                
+                const linkEl = result.querySelector('a[href*="/maps/place/"]');
+                const googleMapsUrl = linkEl ? linkEl.href : '';
+                
+                let placeId = '';
+                if (googleMapsUrl) {
+                    const placeIdMatch = googleMapsUrl.match(/!1s([^!]+)/);
+                    placeId = placeIdMatch ? placeIdMatch[1] : '';
+                }
+                
+                businesses.push({
+                    name: name,
+                    address: address,
+                    city: city,
+                    searchCategory: category,
+                    businessCategory: businessCategory || category,
+                    website: null,
+                    phone: null,
+                    rating: rating,
+                    reviewCount: reviewCount,
+                    googleMapsUrl: googleMapsUrl,
+                    placeId: placeId,
+                    latitude: null,
+                    longitude: null,
+                    scrapedAt: new Date().toISOString()
+                });
+            } catch (err) {
+                console.error('Error extracting business:', err.message);
+            }
+        });
+        
+        return businesses;
+    }, city, category);
 }
 
 // Main actor function
 Actor.main(async () => {
-    // Get input from Actor
     const input = await Actor.getInput();
     
-    // Validate input
     if (!input || !input.cities || !input.categories) {
         throw new Error('Missing required input: cities and categories are required');
     }
@@ -82,93 +157,94 @@ Actor.main(async () => {
         proxyConfiguration = { useApifyProxy: true }
     } = input;
     
-    console.log('🚀 Starting Swedish Business Lead Scraper');
+    console.log('🚀 Starting Swedish Business Lead Scraper (Playwright)');
     console.log(`📍 Cities: ${cities.join(', ')}`);
     console.log(`🏪 Categories: ${categories.join(', ')}`);
     console.log(`📊 Max results per search: ${maxResultsPerSearch}`);
     
-    // Generate all search queries
     const searchQueries = generateSearchQueries(cities, categories, countryCode);
-    console.log(`📋 Generated ${searchQueries.length} search queries`);
+    console.log(`📋 Generated ${searchQueries.length} search queries\n`);
     
-    // Set to track unique businesses (prevent duplicates)
     const seenBusinesses = new Set();
     let totalScraped = 0;
     let totalUnique = 0;
     
-    // Use CheerioCrawler for each search query
-    for (const searchQuery of searchQueries) {
-        console.log(`\n🔍 Searching: ${searchQuery.category} in ${searchQuery.city}, ${countryCode}`);
+    // Create Playwright crawler
+    const crawler = new PlaywrightCrawler({
+        headless: true,
+        maxRequestsPerCrawl: searchQueries.length,
+        requestHandlerTimeoutSecs: 120,
+        proxyConfiguration: await Actor.createProxyConfiguration(proxyConfiguration),
         
-        try {
-            const results = [];
+        async requestHandler({ page, request }) {
+            const { city, category, location } = request.userData;
             
-            // Create a crawler for this search
-            const crawler = new CheerioCrawler({
-                maxRequestsPerCrawl: 1,
-                requestHandlerTimeoutSecs: 30,
-                proxyConfiguration,
-                async requestHandler({ $, request }) {
-                    console.log(`📡 Fetched: ${request.url}`);
-                    
-                    // Extract business data from the page
-                    const businesses = extractBusinessData($, searchQuery.city, searchQuery.category);
-                    results.push(...businesses);
-                    
-                    console.log(`✅ Found ${businesses.length} businesses on this page`);
-                },
-                failedRequestHandler({ request }) {
-                    console.error(`❌ Request failed: ${request.url}`);
-                },
-            });
+            console.log(`\n🔍 Searching: ${category} in ${city}`);
             
-            // Run the crawler with the search URL
-            await crawler.run([searchQuery.searchUrl]);
-            
-            totalScraped += results.length;
-            
-            // Process and store results
-            for (const business of results) {
-                // Create unique identifier
-                const uniqueId = `${business.name}-${business.address}`.toLowerCase();
+            try {
+                await page.waitForLoadState('networkidle', { timeout: 30000 });
                 
-                // Skip if already seen
-                if (seenBusinesses.has(uniqueId)) {
-                    console.log(`⏭️  Skipping duplicate: ${business.name}`);
-                    continue;
+                console.log('🔎 Entering search query...');
+                const searchBox = await page.waitForSelector('input[id="searchboxinput"]', { timeout: 10000 });
+                await searchBox.fill(`${category} in ${location}`);
+                
+                const searchButton = await page.waitForSelector('button[id="searchbox-searchbutton"]', { timeout: 5000 });
+                await searchButton.click();
+                
+                console.log('⏳ Waiting for results to load...');
+                await page.waitForTimeout(3000);
+                
+                await scrollResults(page, maxResultsPerSearch);
+                
+                console.log('📊 Extracting business data...');
+                const businesses = await extractBusinesses(page, city, category);
+                
+                console.log(`✅ Extracted ${businesses.length} businesses`);
+                totalScraped += businesses.length;
+                
+                for (const business of businesses) {
+                    const uniqueId = `${business.name}-${business.address}`.toLowerCase().replace(/\s+/g, '');
+                    
+                    if (seenBusinesses.has(uniqueId)) {
+                        continue;
+                    }
+                    
+                    if (!business.name || business.name.length < 2) {
+                        continue;
+                    }
+                    
+                    seenBusinesses.add(uniqueId);
+                    totalUnique++;
+                    
+                    await Actor.pushData(business);
+                    console.log(`💾 Saved: ${business.name}`);
                 }
                 
-                // Skip if name is empty
-                if (!business.name || business.name.length < 2) {
-                    continue;
-                }
-                
-                // Mark as seen
-                seenBusinesses.add(uniqueId);
-                totalUnique++;
-                
-                // Push to dataset
-                await Actor.pushData(business);
-                
-                console.log(`💾 Saved: ${business.name} (${business.city})`);
+            } catch (error) {
+                console.error(`❌ Error during scraping: ${error.message}`);
             }
-            
-            // Small delay between searches to be respectful
-            await Actor.utils.sleep(3000);
-            
-        } catch (error) {
-            console.error(`❌ Error searching "${searchQuery.category} in ${searchQuery.city}":`, error.message);
-            // Continue with next query even if one fails
-            continue;
-        }
-    }
+        },
+        
+        failedRequestHandler({ request, error }) {
+            console.error(`❌ Request failed for ${request.userData.city}: ${error.message}`);
+        },
+    });
     
-    // Final statistics
+    const requests = searchQueries.map(query => ({
+        url: query.searchUrl,
+        userData: {
+            city: query.city,
+            category: query.category,
+            location: query.location
+        }
+    }));
+    
+    await crawler.run(requests);
+    
     console.log('\n📊 Scraping Complete!');
-    console.log(`📈 Total businesses scraped: ${totalScraped}`);
+    console.log(`📈 Total businesses found: ${totalScraped}`);
     console.log(`✨ Unique businesses saved: ${totalUnique}`);
     console.log(`🗑️  Duplicates removed: ${totalScraped - totalUnique}`);
     console.log(`🎯 Searches performed: ${searchQueries.length}`);
-    
     console.log('\n✅ Actor finished successfully!');
 });
