@@ -1,4 +1,4 @@
-const Apify = require('apify');
+const { Actor } = require('apify');
 
 // Helper function to create search queries
 function generateSearchQueries(cities, categories, countryCode) {
@@ -37,9 +37,9 @@ function cleanBusinessData(business, city, category) {
 }
 
 // Main actor function
-Apify.main(async () => {
-    // Get input from Apify
-    const input = await Apify.getInput();
+Actor.main(async () => {
+    // Get input from Actor
+    const input = await Actor.getInput();
     
     // Validate input
     if (!input || !input.cities || !input.categories) {
@@ -87,10 +87,10 @@ Apify.main(async () => {
             };
             
             // Run the Google Maps Scraper
-            const run = await Apify.call('compass/crawler-google-places', googleMapsScraperInput);
+            const run = await Actor.call('compass/crawler-google-places', googleMapsScraperInput);
             
             // Get the results from the scraper's dataset
-            const { items } = await Apify.client.dataset(run.defaultDatasetId).listItems();
+            const { items } = await Actor.apifyClient.dataset(run.defaultDatasetId).listItems();
             
             console.log(`✅ Found ${items.length} businesses`);
             totalScraped += items.length;
@@ -114,13 +114,13 @@ Apify.main(async () => {
                 const cleanedData = cleanBusinessData(business, searchQuery.city, searchQuery.category);
                 
                 // Push to dataset
-                await Apify.pushData(cleanedData);
+                await Actor.pushData(cleanedData);
                 
                 console.log(`💾 Saved: ${cleanedData.name} (${cleanedData.city})`);
             }
             
             // Small delay between searches to be respectful
-            await Apify.utils.sleep(2000);
+            await Actor.utils.sleep(2000);
             
         } catch (error) {
             console.error(`❌ Error searching "${searchQuery.query}":`, error.message);
