@@ -67,54 +67,91 @@ async function scrollResults(page, maxResults) {
 async function extractBusinesses(page, city, category) {
     return await page.evaluate((city, category) => {
         const businesses = [];
-        const results = document.querySelectorAll('div[role="feed"] > div > div[class*="Nv2PK"]');
         
-        results.forEach((result) => {
+        // Try multiple selectors for results
+        const results = document.querySelectorAll('div[role="feed"] > div > div') || 
+                       document.querySelectorAll('div[role="article"]') ||
+                       document.querySelectorAll('[jsaction*="mouseover"]');
+        
+        console.log(`Found ${results.length} result elements`);
+        
+        results.forEach((result, index) => {
             try {
-                const nameEl = result.querySelector('div[class*="qBF1Pd"]') || result.querySelector('a[class*="hfpxzc"]');
-                const name = nameEl?.getAttribute('aria-label') || nameEl?.textContent?.trim() || '';
+                // Multiple ways to find business name
+                let name = '';
+                const nameSelectors = [
+                    'a[aria-label]',
+                    'div[class*="fontHeadlineSmall"]',
+                    'div[class*="qBF1Pd"]',
+                    'a[class*="hfpxzc"]'
+                ];
                 
-                if (!name || name.length < 2) return;
+                for (const selector of nameSelectors) {
+                    const el = result.querySelector(selector);
+                    if (el) {
+                        name = el.getAttribute('aria-label') || el.textContent?.trim() || '';
+                        if (name && name.length > 2) break;
+                    }
+                }
                 
+                if (!name || name.length < 2) {
+                    console.log(`Skipping result ${index}: no name found`);
+                    return;
+                }
+                
+                // Extract rating
                 const ratingEl = result.querySelector('span[role="img"]');
                 const ratingText = ratingEl?.getAttribute('aria-label') || '';
                 const ratingMatch = ratingText.match(/([0-9.]+)\s*star/i);
                 const rating = ratingMatch ? parseFloat(ratingMatch[1]) : null;
                 
-                const reviewEl = result.querySelector('span[aria-label*="reviews"]') || result.querySelector('span[aria-label*="review"]');
-                const reviewText = reviewEl?.getAttribute('aria-label') || reviewEl?.textContent || '';
-                const reviewMatch = reviewText.match(/([0-9,]+)/);
+                // Extract review count
+                const reviewText = result.textContent || '';
+                const reviewMatch = reviewText.match(/\(([0-9,]+)\)/);
                 const reviewCount = reviewMatch ? parseInt(reviewMatch[1].replace(/,/g, '')) : 0;
                 
-                const addressEls = result.querySelectorAll('div[class*="W4Efsd"] span');
+                // Extract address - look for text that looks like an address
                 let address = '';
-                addressEls.forEach(el => {
+                const textElements = result.querySelectorAll('span, div');
+                for (const el of textElements) {
                     const text = el.textContent?.trim() || '';
-                    if (text && !text.includes('·') && !text.match(/^[0-9.]+$/)) {
-                        if (!address) address = text;
+                    // Address typically contains numbers and commas
+                    if (text && text.length > 10 && text.match(/\d/) && !text.includes('star') && !text.includes('review')) {
+                        address = text;
+                        break;
                     }
-                });
+                }
                 
-                const categoryEls = result.querySelectorAll('div[class*="W4Efsd"] span');
+                // Extract business category
                 let businessCategory = '';
-                categoryEls.forEach(el => {
+                for (const el of textElements) {
                     const text = el.textContent?.trim() || '';
                     if (text.includes('·')) {
                         const parts = text.split('·');
                         if (parts[0] && !parts[0].match(/^\d/)) {
                             businessCategory = parts[0].trim();
+                            break;
                         }
                     }
-                });
+                }
                 
-                const linkEl = result.querySelector('a[href*="/maps/place/"]');
-                const googleMapsUrl = linkEl ? linkEl.href : '';
+                // Extract Google Maps URL
+                const linkEl = result.querySelector('a[href*="/maps/place/"]') || 
+                              result.querySelector('a[href*="place"]');
+                let googleMapsUrl = linkEl ? linkEl.href : '';
+                
+                // Try to construct URL from data if not found
+                if (!googleMapsUrl && name) {
+                    googleMapsUrl = `https://www.google.com/maps/search/${encodeURIComponent(name + ' ' + city)}`;
+                }
                 
                 let placeId = '';
                 if (googleMapsUrl) {
                     const placeIdMatch = googleMapsUrl.match(/!1s([^!]+)/);
                     placeId = placeIdMatch ? placeIdMatch[1] : '';
                 }
+                
+                console.log(`Extracted business: ${name}`);
                 
                 businesses.push({
                     name: name,
@@ -182,7 +219,9 @@ Actor.main(async () => {
             console.log(`\n🔍 Searching: ${category} in ${city}`);
             
             try {
-                await page.waitForLoadState('networkidle', { timeout: 30000 });
+                // Wait for page to be ready (don't wait for networkidle - it never happens on Google Maps)
+                await page.waitForLoadState('domcontentloaded');
+                await page.waitForTimeout(2000);
                 
                 console.log('🔎 Entering search query...');
                 const searchBox = await page.waitForSelector('input[id="searchboxinput"]', { timeout: 10000 });
@@ -192,6 +231,8 @@ Actor.main(async () => {
                 await searchButton.click();
                 
                 console.log('⏳ Waiting for results to load...');
+                // Wait for results panel to appear
+                await page.waitForSelector('div[role="feed"]', { timeout: 15000 });
                 await page.waitForTimeout(3000);
                 
                 await scrollResults(page, maxResultsPerSearch);
