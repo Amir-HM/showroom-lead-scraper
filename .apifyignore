@@ -1,0 +1,8 @@
+# Apify ignore file
+node_modules
+.git
+.gitignore
+.DS_Store
+README.md
+DEPLOYMENT.md
+INPUT_EXAMPLE.json

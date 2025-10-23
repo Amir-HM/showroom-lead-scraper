@@ -1,0 +1,17 @@
+{
+  "actorSpecification": 1,
+  "name": "showroom-lead-scraper",
+  "title": "Swedish Business Lead Scraper",
+  "description": "Automatically searches Google Maps for Swedish businesses across cities and categories, collecting structured data for micro-influencer marketing campaigns.",
+  "version": "1.0.0",
+  "meta": {
+    "templateId": "javascript-start"
+  },
+  "input": "./input_schema.json",
+  "dockerfile": "./Dockerfile",
+  "readme": "./README.md",
+  "categories": [
+    "BUSINESS",
+    "MARKETING"
+  ]
+}

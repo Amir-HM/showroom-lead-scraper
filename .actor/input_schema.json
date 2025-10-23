@@ -1,0 +1,80 @@
+{
+  "title": "Swedish Business Lead Scraper Input",
+  "type": "object",
+  "schemaVersion": 1,
+  "properties": {
+    "cities": {
+      "title": "Swedish Cities",
+      "type": "array",
+      "description": "List of Swedish cities to search in",
+      "editor": "stringList",
+      "default": [
+        "Stockholm",
+        "Gothenburg",
+        "Malmö",
+        "Uppsala",
+        "Västerås",
+        "Örebro",
+        "Linköping",
+        "Helsingborg",
+        "Jönköping",
+        "Norrköping"
+      ],
+      "prefill": [
+        "Stockholm",
+        "Gothenburg",
+        "Malmö"
+      ]
+    },
+    "categories": {
+      "title": "Business Categories",
+      "type": "array",
+      "description": "Types of businesses to search for",
+      "editor": "stringList",
+      "default": [
+        "café",
+        "gym",
+        "beauty salon",
+        "restaurant",
+        "spa",
+        "yoga studio",
+        "boutique",
+        "hair salon",
+        "nail salon",
+        "fitness center"
+      ],
+      "prefill": [
+        "café",
+        "gym",
+        "beauty salon"
+      ]
+    },
+    "maxResultsPerSearch": {
+      "title": "Max Results Per Search",
+      "type": "integer",
+      "description": "Maximum number of results to collect per city-category combination",
+      "default": 20,
+      "minimum": 1,
+      "maximum": 100
+    },
+    "countryCode": {
+      "title": "Country",
+      "type": "string",
+      "description": "Country to search in",
+      "default": "Sweden",
+      "enum": ["Sweden"],
+      "enumTitles": ["Sweden"]
+    },
+    "proxyConfiguration": {
+      "title": "Proxy Configuration",
+      "type": "object",
+      "description": "Proxy settings for requests",
+      "default": {
+        "useApifyProxy": true,
+        "apifyProxyGroups": ["RESIDENTIAL"]
+      },
+      "editor": "proxy"
+    }
+  },
+  "required": ["cities", "categories"]
+}
