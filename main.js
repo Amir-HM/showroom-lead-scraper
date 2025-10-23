@@ -1,4 +1,5 @@
-const { Actor, CheerioCrawler } = require('apify');
+const { Actor } = require('apify');
+const { CheerioCrawler } = require('crawlee');
 const { URL } = require('url');
 
 // Helper function to create search queries

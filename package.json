@@ -11,7 +11,7 @@
   "license": "MIT",
   "dependencies": {
     "apify": "^3.1.0",
-    "cheerio": "^1.0.0-rc.12"
+    "crawlee": "^3.7.0"
   },
   "repository": {},
   "apify": {
