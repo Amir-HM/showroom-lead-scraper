@@ -1,5 +1,5 @@
-# Specify the base Docker image
-FROM apify/actor-node:18
+# Specify the base Docker image with Playwright support
+FROM apify/actor-node-playwright-chromium:18
 
 # Copy package.json and package-lock.json
 COPY package*.json ./
