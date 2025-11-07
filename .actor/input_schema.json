@@ -171,7 +171,7 @@
       "title": "💰 Minimum Revenue",
       "type": "string",
       "description": "Minimum annual revenue (e.g., '1M', '10M', '100M', '1B')",
-      "editor": "textfield",
+      "editor": "select",
       "enum": [
         "100K",
         "500K",
@@ -190,7 +190,7 @@
       "title": "💸 Maximum Revenue",
       "type": "string",
       "description": "Maximum annual revenue (e.g., '1M', '10M', '100M', '1B')",
-      "editor": "textfield",
+      "editor": "select",
       "enum": [
         "100K",
         "500K",
