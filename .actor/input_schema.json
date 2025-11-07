@@ -1,80 +1,231 @@
 {
-  "title": "Swedish Business Lead Scraper Input",
+  "title": "✨ Leads Finder — B2B Contact & Company Data",
   "type": "object",
   "schemaVersion": 1,
   "properties": {
-    "cities": {
-      "title": "Swedish Cities",
-      "type": "array",
-      "description": "List of Swedish cities to search in",
-      "editor": "stringList",
-      "default": [
-        "Stockholm",
-        "Gothenburg",
-        "Malmö",
-        "Uppsala",
-        "Västerås",
-        "Örebro",
-        "Linköping",
-        "Helsingborg",
-        "Jönköping",
-        "Norrköping"
-      ],
-      "prefill": [
-        "Stockholm",
-        "Gothenburg",
-        "Malmö"
-      ]
-    },
-    "categories": {
-      "title": "Business Categories",
-      "type": "array",
-      "description": "Types of businesses to search for",
-      "editor": "stringList",
-      "default": [
-        "café",
-        "gym",
-        "beauty salon",
-        "restaurant",
-        "spa",
-        "yoga studio",
-        "boutique",
-        "hair salon",
-        "nail salon",
-        "fitness center"
-      ],
-      "prefill": [
-        "café",
-        "gym",
-        "beauty salon"
-      ]
-    },
-    "maxResultsPerSearch": {
-      "title": "Max Results Per Search",
-      "type": "integer",
-      "description": "Maximum number of results to collect per city-category combination",
-      "default": 20,
-      "minimum": 1,
-      "maximum": 100
-    },
-    "countryCode": {
-      "title": "Country",
+    "file_name": {
+      "title": "📁 File name / Run label",
       "type": "string",
-      "description": "Country to search in",
-      "default": "Sweden",
-      "enum": ["Sweden"],
-      "enumTitles": ["Sweden"]
+      "description": "Custom label for this run and export file name (optional)",
+      "editor": "textfield",
+      "example": "marketing-managers-us-saas"
     },
-    "proxyConfiguration": {
-      "title": "Proxy Configuration",
-      "type": "object",
-      "description": "Proxy settings for requests",
-      "default": {
-        "useApifyProxy": true,
-        "apifyProxyGroups": ["RESIDENTIAL"]
-      },
-      "editor": "proxy"
+    "fetch_count": {
+      "title": "#️⃣ Number of leads to fetch",
+      "type": "integer",
+      "description": "Maximum number of leads to fetch. Leave empty to fetch all matching leads. Free plan is capped at 100 leads/run.",
+      "default": 50000,
+      "minimum": 1,
+      "maximum": 500000
+    },
+    "contact_job_title": {
+      "title": "👔 Job Title (Include)",
+      "type": "array",
+      "description": "Include contacts with these job titles (e.g., 'Marketing Manager', 'CEO', 'Software Engineer')",
+      "editor": "stringList",
+      "placeholderKey": "contact_job_title",
+      "placeholderValue": "Marketing Manager"
+    },
+    "contact_not_job_title": {
+      "title": "🚫 Job Title (Exclude)",
+      "type": "array",
+      "description": "Exclude contacts with these job titles",
+      "editor": "stringList"
+    },
+    "seniority_level": {
+      "title": "📊 Seniority Level",
+      "type": "array",
+      "description": "Filter by seniority level",
+      "editor": "select",
+      "enum": [
+        "Founder",
+        "Owner",
+        "C-Level",
+        "Director",
+        "VP",
+        "Head",
+        "Manager",
+        "Senior",
+        "Entry",
+        "Trainee"
+      ]
+    },
+    "functional_level": {
+      "title": "💼 Functional Area",
+      "type": "array",
+      "description": "Filter by functional department",
+      "editor": "select",
+      "enum": [
+        "C-Level",
+        "Finance",
+        "Product",
+        "Engineering",
+        "Design",
+        "HR",
+        "IT",
+        "Legal",
+        "Marketing",
+        "Operations",
+        "Sales",
+        "Support"
+      ]
+    },
+    "contact_location": {
+      "title": "🌍 Location (Include) — Region/Country/State",
+      "type": "array",
+      "description": "Include contacts from these regions, countries, or states (e.g., 'United States', 'California', 'EMEA'). Use either Location OR City, not both.",
+      "editor": "stringList",
+      "placeholderKey": "location",
+      "placeholderValue": "United States"
+    },
+    "contact_city": {
+      "title": "🏙️ City (Include)",
+      "type": "array",
+      "description": "Include contacts from specific cities (e.g., 'San Francisco', 'New York', 'Amsterdam'). Leave Location empty when using City.",
+      "editor": "stringList",
+      "placeholderKey": "city",
+      "placeholderValue": "San Francisco"
+    },
+    "contact_not_location": {
+      "title": "🚷 Location (Exclude) — Region/Country/State",
+      "type": "array",
+      "description": "Exclude contacts from these regions, countries, or states",
+      "editor": "stringList"
+    },
+    "contact_not_city": {
+      "title": "🚫 City (Exclude)",
+      "type": "array",
+      "description": "Exclude contacts from specific cities",
+      "editor": "stringList"
+    },
+    "email_status": {
+      "title": "✉️ Email Quality",
+      "type": "array",
+      "description": "Filter by email validation status. Prefer 'validated' for outreach-ready emails.",
+      "editor": "select",
+      "enum": [
+        "validated",
+        "not_validated",
+        "unknown"
+      ],
+      "default": ["validated"],
+      "prefill": ["validated"]
+    },
+    "company_domain": {
+      "title": "🌐 Company Domain",
+      "type": "array",
+      "description": "Limit to specific company domains (e.g., 'google.com', 'apple.com', 'https://microsoft.com')",
+      "editor": "stringList",
+      "placeholderKey": "domain",
+      "placeholderValue": "google.com"
+    },
+    "size": {
+      "title": "👥 Company Size",
+      "type": "array",
+      "description": "Filter by number of employees",
+      "editor": "select",
+      "enum": [
+        "0-1",
+        "2-10",
+        "11-20",
+        "21-50",
+        "51-100",
+        "101-200",
+        "201-500",
+        "501-1000",
+        "1001-2000",
+        "2001-5000",
+        "5001-10000",
+        "10000+"
+      ]
+    },
+    "company_industry": {
+      "title": "🏭 Industry (Include)",
+      "type": "array",
+      "description": "Include companies from these industries (e.g., 'Computer Software', 'SaaS', 'Healthcare')",
+      "editor": "stringList",
+      "placeholderKey": "industry",
+      "placeholderValue": "Computer Software"
+    },
+    "company_not_industry": {
+      "title": "🚫 Industry (Exclude)",
+      "type": "array",
+      "description": "Exclude companies from these industries",
+      "editor": "stringList"
+    },
+    "company_keywords": {
+      "title": "🔑 Company Keywords (Include)",
+      "type": "array",
+      "description": "Include companies matching these keywords in their description or profile",
+      "editor": "stringList",
+      "placeholderKey": "keyword",
+      "placeholderValue": "artificial intelligence"
+    },
+    "company_not_keywords": {
+      "title": "🚫 Company Keywords (Exclude)",
+      "type": "array",
+      "description": "Exclude companies matching these keywords",
+      "editor": "stringList"
+    },
+    "min_revenue": {
+      "title": "💰 Minimum Revenue",
+      "type": "string",
+      "description": "Minimum annual revenue (e.g., '1M', '10M', '100M', '1B')",
+      "editor": "textfield",
+      "enum": [
+        "100K",
+        "500K",
+        "1M",
+        "5M",
+        "10M",
+        "50M",
+        "100M",
+        "500M",
+        "1B",
+        "5B",
+        "10B"
+      ]
+    },
+    "max_revenue": {
+      "title": "💸 Maximum Revenue",
+      "type": "string",
+      "description": "Maximum annual revenue (e.g., '1M', '10M', '100M', '1B')",
+      "editor": "textfield",
+      "enum": [
+        "100K",
+        "500K",
+        "1M",
+        "5M",
+        "10M",
+        "50M",
+        "100M",
+        "500M",
+        "1B",
+        "5B",
+        "10B"
+      ]
+    },
+    "funding": {
+      "title": "💵 Funding Stage",
+      "type": "array",
+      "description": "Filter by company funding stage",
+      "editor": "select",
+      "enum": [
+        "Seed",
+        "Angel",
+        "Series A",
+        "Series B",
+        "Series C",
+        "Series D",
+        "Series E",
+        "Series F",
+        "Venture",
+        "Debt",
+        "Convertible",
+        "PE",
+        "Other"
+      ]
     }
   },
-  "required": ["cities", "categories"]
+  "required": []
 }

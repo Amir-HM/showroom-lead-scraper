@@ -1,10 +1,10 @@
-# Specify the base Docker image with Playwright Chrome support
-FROM apify/actor-node-playwright-chrome:18
+# Use official Apify SDK base image for Node.js
+FROM apify/actor-node:18
 
-# Copy package.json and package-lock.json
+# Copy package files
 COPY package*.json ./
 
-# Install dependencies
+# Install NPM packages
 RUN npm --quiet set progress=false \
     && npm install --only=prod --no-optional \
     && echo "Installed NPM packages:" \
@@ -14,7 +14,7 @@ RUN npm --quiet set progress=false \
     && echo "NPM version:" \
     && npm --version
 
-# Copy source code
+# Copy source code to the container
 COPY . ./
 
 # Run the actor
