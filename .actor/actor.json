@@ -1,9 +1,9 @@
 {
   "actorSpecification": 1,
-  "name": "showroom-lead-scraper",
-  "title": "Swedish Business Lead Scraper",
-  "description": "Automatically searches Google Maps for Swedish businesses across cities and categories, collecting structured data for micro-influencer marketing campaigns.",
-  "version": "1.0",
+  "name": "leads-finder",
+  "title": "✨ Leads Finder — Effortless B2B Data Extraction",
+  "description": "Cost-effective alternative to ZoomInfo, Lusha & Apollo. Get verified B2B emails, LinkedIn profiles, and rich firmographics at scale. Generate targeted contact lists using advanced filters (job title, location, industry, tech stack, revenue, funding) and export verified emails, LinkedIn URLs, and detailed company data ready for CRM or outreach.",
+  "version": "1.1",
   "meta": {
     "templateId": "javascript-start"
   },
@@ -12,6 +12,7 @@
   "readme": "./README.md",
   "categories": [
     "BUSINESS",
-    "MARKETING"
+    "MARKETING",
+    "LEAD_GENERATION"
   ]
 }

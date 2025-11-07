@@ -1,20 +1,33 @@
 {
-  "name": "showroom-lead-scraper",
-  "version": "1.0.0",
-  "description": "Apify actor for scraping Swedish business leads from Google Maps",
+  "name": "leads-finder",
+  "version": "1.1.0",
+  "description": "Cost-effective B2B lead generation actor - Alternative to ZoomInfo, Lusha & Apollo. Get verified emails, LinkedIn profiles, and rich firmographics at scale.",
   "main": "main.js",
   "scripts": {
     "start": "node main.js",
     "test": "echo \"No tests yet\" && exit 0"
   },
-  "author": "",
+  "keywords": [
+    "leads",
+    "b2b",
+    "contact-data",
+    "email-finder",
+    "linkedin",
+    "sales",
+    "marketing",
+    "prospecting",
+    "zoominfo-alternative",
+    "lusha-alternative"
+  ],
+  "author": "codecrafter70@gmail.com",
   "license": "MIT",
   "dependencies": {
-    "apify": "^3.1.0",
-    "crawlee": "^3.7.0",
-    "playwright": "*"
+    "apify": "^3.1.0"
   },
-  "repository": {},
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/Amir-HM/showroom-lead-scraper"
+  },
   "apify": {
     "actorType": "ACTOR"
   }

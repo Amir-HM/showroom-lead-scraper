@@ -1,24 +1,45 @@
 {
-  "cities": [
-    "Stockholm",
-    "Gothenburg",
-    "Malmö",
-    "Uppsala",
-    "Västerås"
+  "file_name": "us-saas-marketing-leaders",
+  "fetch_count": 100,
+  "contact_job_title": [
+    "CMO",
+    "VP Marketing",
+    "Head of Marketing",
+    "Marketing Director"
   ],
-  "categories": [
-    "café",
-    "gym",
-    "beauty salon",
-    "yoga studio",
-    "spa"
+  "functional_level": [
+    "Marketing"
   ],
-  "maxResultsPerSearch": 20,
-  "countryCode": "Sweden",
-  "proxyConfiguration": {
-    "useApifyProxy": true,
-    "apifyProxyGroups": [
-      "RESIDENTIAL"
-    ]
-  }
+  "seniority_level": [
+    "C-Level",
+    "VP",
+    "Head",
+    "Director"
+  ],
+  "contact_location": [
+    "United States"
+  ],
+  "email_status": [
+    "validated"
+  ],
+  "company_industry": [
+    "Computer Software",
+    "SaaS",
+    "Internet",
+    "Information Technology & Services"
+  ],
+  "size": [
+    "51-100",
+    "101-200",
+    "201-500",
+    "501-1000"
+  ],
+  "min_revenue": "1M",
+  "max_revenue": "100M",
+  "funding": [
+    "Series A",
+    "Series B",
+    "Series C",
+    "Venture"
+  ]
 }
